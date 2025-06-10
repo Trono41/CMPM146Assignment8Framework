@@ -14,12 +14,12 @@ public class MapGenerator : MonoBehaviour
     // this will limit the run time (~10 is a good value 
     // during development, later you'll want to set it to 
     // something a bit higher, like 25-30)
-    public int MAX_SIZE;
+    public int MAX_SIZE = 3;
 
     // set this to a high value when the generator works
     // for debugging it can be helpful to test with few rooms
     // and, say, a threshold of 100 iterations
-    public int THRESHOLD;
+    public int THRESHOLD = 100;
 
     // keep the instantiated rooms and hallways here 
     private List<GameObject> generated_objects;
@@ -47,6 +47,25 @@ public class MapGenerator : MonoBehaviour
     bool GenerateWithBacktracking(List<Vector2Int> occupied, List<Door> doors, int depth)
     {
         if (iterations > THRESHOLD) throw new System.Exception("Iteration limit exceeded");
+        // generated_objects.Add(rooms[4].Place(new Vector2Int(1,0)));
+        List<Room> matching_doors = new List<Room>();
+        foreach (Room room in rooms)
+        {
+            if (room.HasDoorOnSide(Door.Direction.WEST))
+            {
+                matching_doors.Add(room);
+            }
+        }
+        int roomIndex = generateIndex(matching_doors.Count);
+        if (generated_objects.Count < 2)
+        {
+            List<Door> doorList = matching_doors[roomIndex].GetDoors();
+            if (doorList.Count <= 1)
+            {
+                roomIndex = generateIndex(matching_doors.Count);
+            }
+        }
+        generated_objects.Add(matching_doors[roomIndex].Place(new Vector2Int(1,0)));
         return false;
     }
 
@@ -62,5 +81,10 @@ public class MapGenerator : MonoBehaviour
     {
         if (Keyboard.current.gKey.wasPressedThisFrame)
             Generate();
+    }
+
+    int generateIndex(int max_range)
+    {
+        return Random.Range(0, max_range);
     }
 }
