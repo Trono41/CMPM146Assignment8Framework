@@ -1,6 +1,7 @@
 using UnityEngine;
 using System.Collections.Generic;
 using UnityEngine.InputSystem;
+using Unity.Jobs;
 
 public class MapGenerator : MonoBehaviour
 {
@@ -43,7 +44,6 @@ public class MapGenerator : MonoBehaviour
         GenerateWithBacktracking(occupied, doors, 1);
     }
 
-
     bool GenerateWithBacktracking(List<Vector2Int> occupied, List<Door> doors, int depth)
     {
         if (iterations > THRESHOLD) throw new System.Exception("Iteration limit exceeded");
@@ -65,8 +65,25 @@ public class MapGenerator : MonoBehaviour
                 roomIndex = generateIndex(matching_doors.Count);
             }
         }
-        generated_objects.Add(matching_doors[roomIndex].Place(new Vector2Int(1,0)));
-        return false;
+        Door door_to_connect = doors[doors.Count - 1].GetMatching();
+        Vector2Int placementPos = door_to_connect.GetGridCoordinates();
+        for (int i = 0; i < occupied.Count; i++)
+        {
+            if (placementPos == occupied[i])
+            {
+                return false;
+            }
+        }
+        generated_objects.Add(matching_doors[roomIndex].Place(placementPos));
+        occupied.Add(placementPos);
+        iterations++;
+        
+        return true;
+    }
+
+    int generateIndex(int max_range)
+    {
+        return Random.Range(0, max_range);
     }
 
     // Start is called once before the first execution of Update after the MonoBehaviour is created
@@ -81,10 +98,5 @@ public class MapGenerator : MonoBehaviour
     {
         if (Keyboard.current.gKey.wasPressedThisFrame)
             Generate();
-    }
-
-    int generateIndex(int max_range)
-    {
-        return Random.Range(0, max_range);
     }
 }
