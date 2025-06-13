@@ -1,7 +1,6 @@
 using UnityEngine;
 using System.Collections.Generic;
 using UnityEngine.InputSystem;
-using Unity.Jobs;
 
 public class MapGenerator : MonoBehaviour
 {
@@ -39,52 +38,79 @@ public class MapGenerator : MonoBehaviour
         generated_objects.Add(start.Place(new Vector2Int(0,0)));
         List<Door> doors = start.GetDoors();
         List<Vector2Int> occupied = new List<Vector2Int>();
-        occupied.Add(new Vector2Int(0, 0));
         iterations = 0;
-        GenerateWithBacktracking(occupied, doors, 1);
+        try
+        {
+            GenerateWithBacktracking(occupied, doors, 1);
+        }
+        catch (System.Exception e)
+        {
+            Generate();
+            return;
+        }
     }
+
 
     bool GenerateWithBacktracking(List<Vector2Int> occupied, List<Door> doors, int depth)
     {
         if (iterations > THRESHOLD) throw new System.Exception("Iteration limit exceeded");
 
-        List<Room> matching_doors = new List<Room>();
-        int doorIndex = Random.Range(0, doors.Count);
-        foreach (Room room in rooms)
-        {
-            if (room.HasDoorOnSide(doors[doorIndex].GetDirection()))
-            {
-                matching_doors.Add(room);
-            }
-        }
-        int roomIndex = generateIndex(matching_doors.Count);
-        if (generated_objects.Count < 2)
-        {
-            List<Door> doorList = matching_doors[roomIndex].GetDoors();
-            if (doorList.Count <= 1)
-            {
-                roomIndex = generateIndex(matching_doors.Count);
-            }
-        }
-        Door door_to_connect = doors[doors.Count - 1].GetMatching();
-        Vector2Int placementPos = door_to_connect.GetGridCoordinates();
-        for (int i = 0; i < occupied.Count; i++)
-        {
-            if (placementPos == occupied[i])
-            {
-                return false;
-            }
-        }
-        generated_objects.Add(matching_doors[roomIndex].Place(placementPos));
-        occupied.Add(placementPos);
         iterations++;
-        
-        return false;
-    }
+        if (doors.Count == 0)  return depth >= 5;
+        int doorIndex = Random.Range(0, doors.Count);
+        Door currentDoor = doors[doorIndex];
+        doors.RemoveAt(doorIndex);
+        Door toConnect = currentDoor.GetMatching();
+        Vector2Int placeGrid = toConnect.GetGridCoordinates();
+        List<Room> candidates = new List<Room>();
 
-    int generateIndex(int max_range)
-    {
-        return Random.Range(0, max_range);
+        foreach (var room in rooms)
+        {
+            if (room.HasDoorOnSide(toConnect.GetDirection())) candidates.Add(room);
+        }
+
+        for (int i = candidates.Count - 1; i > 0; i--)
+        {
+            int j = Random.Range(0, i + 1);
+            var tmp = candidates[i]; candidates[i] = candidates[j]; candidates[j] = tmp;
+        }
+
+        foreach (var roomPrefab in candidates)
+        {
+            var cells = roomPrefab.GetGridCoordinates(placeGrid);
+            bool overlap = false;
+            foreach (var c in cells)
+            {
+                if (occupied.Contains(c)) { overlap = true; break; }
+            }
+
+            if (overlap) continue;
+
+            var newDoors = roomPrefab.GetDoors(placeGrid);
+            var addedDoors = new List<Door>();
+
+            foreach (var d in newDoors)
+                if (!d.IsMatching(currentDoor)) addedDoors.Add(d);
+
+            occupied.AddRange(cells);
+            doors.AddRange(addedDoors);
+
+            if (GenerateWithBacktracking(occupied, doors, depth + 1))
+            {
+                var hallway = toConnect.IsHorizontal() ? horizontal_hallway : vertical_hallway;
+                generated_objects.Add(hallway.Place(toConnect));
+                generated_objects.Add(roomPrefab.Place(placeGrid));
+                return true;
+            }
+
+            foreach (var d in addedDoors)
+                doors.Remove(d);
+            foreach (var c in cells)
+                occupied.Remove(c);
+        }
+
+        doors.Insert(doorIndex, currentDoor);
+        return false;
     }
 
     // Start is called once before the first execution of Update after the MonoBehaviour is created
