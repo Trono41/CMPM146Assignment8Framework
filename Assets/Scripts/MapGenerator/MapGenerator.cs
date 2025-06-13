@@ -47,11 +47,12 @@ public class MapGenerator : MonoBehaviour
     bool GenerateWithBacktracking(List<Vector2Int> occupied, List<Door> doors, int depth)
     {
         if (iterations > THRESHOLD) throw new System.Exception("Iteration limit exceeded");
-        // generated_objects.Add(rooms[4].Place(new Vector2Int(1,0)));
+
         List<Room> matching_doors = new List<Room>();
+        int doorIndex = Random.Range(0, doors.Count);
         foreach (Room room in rooms)
         {
-            if (room.HasDoorOnSide(Door.Direction.WEST))
+            if (room.HasDoorOnSide(doors[doorIndex].GetDirection()))
             {
                 matching_doors.Add(room);
             }
@@ -78,7 +79,7 @@ public class MapGenerator : MonoBehaviour
         occupied.Add(placementPos);
         iterations++;
         
-        return true;
+        return false;
     }
 
     int generateIndex(int max_range)
